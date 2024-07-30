@@ -1,3 +1,4 @@
+import tensorflow as tf
 import streamlit as st
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -47,8 +48,7 @@ def get_completion(query: str, model, tokenizer) -> str:
 
 
 uploaded_zip = st.file_uploader('Zip file', type="zip")
-model = st.session_state['model']
-tokenizer = st.session_state['tokenizer']
+
 def tess_ocr(input_image):
     text = ''
     rgb_image = input_image.convert('RGB')
@@ -63,29 +63,23 @@ if st.button('Submit'):
         folder = 'unzipped'
         files = glob('unzipped/*')
         for file in files:
-            model_layer = keras.layers.TFSMLayer('./CNN1', call_endpoint='serving_default')
-            input_shape = (100, 100, 3)  
-            inputs = keras.Input(shape=input_shape)
-            outputs = model_layer(inputs)
-            model = keras.Model(inputs, outputs)
+           
+            model = tf.saved_model.load('CNN1')
+            inference_fn = model.signatures['serving_default']
+            img = Image.open(file).resize((100, 100))  # Ensure target size matches your model input size
+            img_array = np.array(img) / 255.0  # Apply the same rescaling used in the generator
+            img_tensor = tf.convert_to_tensor([img_array], dtype=tf.float32)
 
-            # Compile the model if needed
-            model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.0001),
-              loss='binary_crossentropy',
-              metrics=['accuracy'])
+            # Make predictions
+            predictions = inference_fn(img_tensor)
+            predicted_class = np.round(predictions['output_1'])  # Adjust key to match your model's output layer name
 
-            img_path = file
-            img = image.load_img(img_path, target_size=(100, 100))  
-            img_array = image.img_to_array(img)
-            img_array = np.expand_dims(img_array, axis=0)
-            img_array = img_array * (1.0 / 255)  
-            predictions = model.predict(img_array)
-            predicted_class = np.round(predictions['output_1'][0]).astype(int)
-            if predicted_class[0] == 0:
+    
+            if predicted_class[0][0] == 0:
                 invoice_image = Image.open(file)
                 query = tess_ocr(invoice_image)
-                
-                
+                model = st.session_state['model']
+                tokenizer = st.session_state['tokenizer']
                 response = get_completion(query, model, tokenizer)
                 end_time = time.time()
                 st.text(f'Time Taken {(end_time-start_time)/60} minutes')
