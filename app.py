@@ -47,7 +47,8 @@ def get_completion(query: str, model, tokenizer) -> str:
 
 
 uploaded_zip = st.file_uploader('Zip file', type="zip")
-
+model = st.session_state['model']
+tokenizer = st.session_state['tokenizer']
 def tess_ocr(input_image):
     text = ''
     rgb_image = input_image.convert('RGB')
@@ -83,8 +84,7 @@ if st.button('Submit'):
             if predicted_class[0] == 0:
                 invoice_image = Image.open(file)
                 query = tess_ocr(invoice_image)
-                model = st.session_state['model']
-                tokenizer = st.session_state['tokenizer']
+                
                 
                 response = get_completion(query, model, tokenizer)
                 end_time = time.time()
